@@ -6,7 +6,7 @@ import (
 	"strata/value"
 )
 
-func Interp(node expr.Expr, env value.Env) (value.Value, value.Env) {
+func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 	switch node.(type) {
 	case expr.IdC:
 		id := node.(expr.IdC)
@@ -19,9 +19,16 @@ func Interp(node expr.Expr, env value.Env) (value.Value, value.Env) {
 			binop := node.(expr.Binop)
 			left, env1 := Interp(binop.Left, env)
 			right, env2 := Interp(binop.Right, env1)
-			fmt.Println(left)
-			fmt.Println(right)
+			//fmt.Println(left)
+			//fmt.Println(right)
 			return value.NumV{Value: left.(value.NumV).Value + right.(value.NumV).Value}, env2
+		case "-":
+			binop := node.(expr.Binop)
+			left, env1 := Interp(binop.Left, env)
+			right, env2 := Interp(binop.Right, env1)
+			//fmt.Println(left)
+			//fmt.Println(right)
+			return value.NumV{Value: left.(value.NumV).Value - right.(value.NumV).Value}, env2
 		case "<":
 			binop := node.(expr.Binop)
 			left, env1 := Interp(binop.Left, env)
@@ -39,9 +46,13 @@ func Interp(node expr.Expr, env value.Env) (value.Value, value.Env) {
 		}, env
 	case expr.Let:
 		let := node.(expr.Let)
+		env.Set(let.Id.(expr.IdC), value.NilV{})
+		fmt.Print("expression :: ")
 		val, e := Interp(let.Value, env)
-		newEnv := value.Set(e, let.Id.(expr.IdC), val)
-		return value.NilV{}, newEnv
+		fmt.Print("value :: ")
+		fmt.Println(val)
+		e.Set(let.Id.(expr.IdC), val)
+		return value.NilV{}, e
 	case expr.Call:
 		call := node.(expr.Call)
 		proc, newEnv := Interp(call.Proc, env)
@@ -59,24 +70,36 @@ func Interp(node expr.Expr, env value.Env) (value.Value, value.Env) {
 				Value: args[i],
 			})
 		}
-		extendedEnv := value.Extend(proc.(value.LamV).Closure, value.Env{Binds: binds})
-		fmt.Println(extendedEnv)
+		callEnvMap := make(map[expr.IdC]value.Value)
+		for _, b := range binds {
+			callEnvMap[b.Id] = b.Value
+		}
+		callEnv := &value.Env{Binds: callEnvMap}
+		extendedEnv := value.Extend(proc.(value.LamV).Closure, callEnv)
+		//fmt.Println(extendedEnv)
 		body, _ := Interp(proc.(value.LamV).Body, extendedEnv)
 		return body, cEnv
 	case expr.If:
 		iff := node.(expr.If)
-		i, eenv := Interp(iff.Cond, env)
+		fmt.Println("if env")
+		fmt.Println(env)
+		i, e := Interp(iff.Cond, env)
 		cond := i.(value.BoolV).Value
 		if cond {
-			return Interp(iff.Then, eenv)
+			val, env := Interp(iff.Then, e)
+			fmt.Println(val)
+			return val, env
 		}
-		return Interp(iff.Else, eenv)
+		return Interp(iff.Else, e)
+	case expr.Group:
+		var group = node.(expr.Group)
+		return Interp(group.Body, env)
 	default:
 		return value.NumV{Value: 0}, env
 	}
 }
 
-func TopInterp(nodes []expr.Expr) value.Env {
+func TopInterp(nodes []expr.Expr) *value.Env {
 	env := value.New()
 	for _, node := range nodes {
 		_, newEnv := Interp(node, env)

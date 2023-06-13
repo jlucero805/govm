@@ -21,7 +21,7 @@ func (nil NilV) value() {}
 type LamV struct {
 	Params  []expr.Expr
 	Body    expr.Expr
-	Closure Env
+	Closure *Env
 }
 
 func (lam LamV) value() {}
@@ -33,50 +33,40 @@ type BoolV struct {
 func (b BoolV) value() {}
 
 type Env struct {
-	Binds []*Bind
+	Binds    map[expr.IdC]Value
+	Previous *Env
+	Parent   bool
 }
 
 type Bind struct {
-	Id    expr.IdC
-	Value Value
+	Id     expr.IdC
+	Value  Value
+	Parent bool
 }
 
 func (b *Bind) SetVal(value Value) {
 	b.Value = value
 }
 
-func New() Env {
-	return Env{Binds: []*Bind{}}
+func New() *Env {
+	return &Env{Binds: make(map[expr.IdC]Value), Parent: true}
 }
 
-func (e *Env) set(id expr.IdC, value Value) {
-	e.Binds = append(e.Binds, &Bind{Id: id, Value: value})
-}
-
-func Set(env Env, id expr.IdC, value Value) Env {
-	return Env{
-		Binds: append(env.Binds, &Bind{Id: id, Value: value}),
-	}
+func (e *Env) Set(id expr.IdC, value Value) {
+	e.Binds[id] = value
 }
 
 func (e *Env) Get(id expr.IdC) Value {
-	for i := len(e.Binds) - 1; i >= 0; i = i - 1 {
-		if e.Binds[i].Id == id {
-			return e.Binds[i].Value
-		}
+	if val, ok := e.Binds[id]; ok {
+		return val
 	}
-	return nil
+	if e.Parent {
+		panic(id.Value)
+	}
+	return e.Previous.Get(id)
 }
 
-func (e *Env) GetBind(id expr.IdC) *Bind {
-	for i := len(e.Binds) - 1; i >= 0; i = i - 1 {
-		if e.Binds[i].Id == id {
-			return e.Binds[i]
-		}
-	}
-	return nil
-}
-
-func Extend(e1 Env, e2 Env) Env {
-	return Env{Binds: append(e1.Binds, e2.Binds...)}
+func Extend(e1 *Env, e2 *Env) *Env {
+	e2.Previous = e1
+	return e2
 }

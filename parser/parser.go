@@ -60,6 +60,7 @@ func (p *parser) atom() expr.Expr {
 	case "LPAR":
 		p.eat()
 		expression := p.fn()
+		p.eat()
 		return expr.Group{Body: expression}
 	default:
 		return nil
@@ -118,10 +119,11 @@ func (p *parser) factor() expr.Expr {
 
 func (p *parser) term() expr.Expr {
 	left := p.factor()
-	if !p.end() && p.cur().Type == "+" {
+	if !p.end() && (p.cur().Type == "+" || p.cur().Type == "-") {
+		op := p.cur().Type
 		p.eat()
 		right := p.term()
-		binop := expr.Binop{Op: "+", Left: left, Right: right}
+		binop := expr.Binop{Op: op, Left: left, Right: right}
 		return binop
 	}
 	return left
@@ -132,7 +134,7 @@ func (p *parser) fn() expr.Expr {
 		p.eat()
 		args := p.fnargs()
 		p.eat() // =>
-		body := p.fn()
+		body := p.expr()
 		return expr.LamC{
 			Params: args,
 			Body:   body,
@@ -151,11 +153,8 @@ func (p *parser) fnargs() []expr.Expr {
 			p.eat()
 		}
 	}
+	fmt.Println("done")
 	return args
-}
-
-func (p *parser) expr() expr.Expr {
-	return p.fn()
 }
 
 func (p *parser) let() expr.Expr {
@@ -174,6 +173,7 @@ func (p *parser) iff() expr.Expr {
 	then := p.expr()
 	p.eat() // else
 	el := p.expr()
+	fmt.Println("done if")
 	return expr.If{
 		Cond: cond,
 		Then: then,
@@ -181,18 +181,23 @@ func (p *parser) iff() expr.Expr {
 	}
 }
 
-func (p *parser) parse() expr.Expr {
+func (p *parser) expr() expr.Expr {
 	if p.cur().Type == "let" {
 		p.eat()
 		let := p.let()
-		p.add(let)
 		return let
 	} else if p.cur().Type == "if" {
 		p.eat()
 		iff := p.iff()
-		p.add(iff)
+		fmt.Print("IFF  :: ")
+		fmt.Println(iff)
 		return iff
 	}
+	value := p.fn()
+	return value
+}
+
+func (p *parser) parse() expr.Expr {
 	value := p.expr()
 	p.add(value)
 	return value

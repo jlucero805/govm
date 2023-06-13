@@ -9,7 +9,7 @@ import (
 )
 
 func Test(t *testing.T) {
-	input := "12 + 21 * 2"
+	input := "12 + 21 < 2"
 	tokens := lexer.Lex(input)
 	parser := New(tokens)
 	parser.parse()
@@ -19,7 +19,7 @@ func Test(t *testing.T) {
 			Op:   "+",
 			Left: expr.NumC{Value: 12},
 			Right: expr.Binop{
-				Op:    "*",
+				Op:    "<",
 				Left:  expr.NumC{Value: 21},
 				Right: expr.NumC{Value: 2},
 			},
@@ -54,6 +54,50 @@ func Test2(t *testing.T) {
 	}
 }
 
+func Test22(t *testing.T) {
+	input := "fn a, b => a + b"
+	tokens := lexer.Lex(input)
+	parser := New(tokens)
+	parser.parse()
+	fmt.Println(parser.stmts)
+	expect := []expr.Expr{
+		expr.LamC{
+			Params: []expr.Expr{
+				expr.IdC{Value: "a"},
+				expr.IdC{Value: "b"},
+			},
+			Body: expr.Binop{
+				Op:    "+",
+				Left:  expr.IdC{Value: "a"},
+				Right: expr.IdC{Value: "b"},
+			},
+		},
+	}
+	if !reflect.DeepEqual(expect, parser.stmts) {
+		t.Errorf("")
+	}
+}
+
+func TestCalla(t *testing.T) {
+	input := "(1 + 2)"
+	tokens := lexer.Lex(input)
+	parser := New(tokens)
+	parser.parse()
+	fmt.Println(fmt.Sprintf("%#v", parser.stmts))
+	expect := []expr.Expr{
+		expr.Group{
+			Body: expr.Binop{
+				Op:    "+",
+				Left:  expr.NumC{Value: 1},
+				Right: expr.NumC{Value: 2},
+			},
+		},
+	}
+	if !reflect.DeepEqual(expect, parser.stmts) {
+		t.Errorf("%#v %#v", expect, parser.stmts)
+	}
+}
+
 func TestCall(t *testing.T) {
 	input := "call(1 , 2)"
 	tokens := lexer.Lex(input)
@@ -71,5 +115,82 @@ func TestCall(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expect, parser.stmts) {
 		t.Errorf("%#v %#v", expect, parser.stmts)
+	}
+}
+
+func TestTsdf(t *testing.T) {
+	input := "if x < 0 then 0 else 1"
+	tokens := lexer.Lex(input)
+	parser := New(tokens)
+	parser.parse()
+	fmt.Println(parser.stmts)
+	expect := []expr.Expr{
+		expr.If{
+			Cond: expr.Binop{
+				Op:    "<",
+				Left:  expr.IdC{Value: "x"},
+				Right: expr.NumC{Value: 0},
+			},
+			Then: expr.NumC{Value: 0},
+			Else: expr.NumC{Value: 1},
+		},
+	}
+	if !reflect.DeepEqual(expect, parser.stmts) {
+		t.Errorf("%#v %#v", expect, parser.stmts)
+	}
+}
+
+func TestTsdfasf(t *testing.T) {
+	input := "let x = if x < 0 then 0 else 1"
+	tokens := lexer.Lex(input)
+	parser := New(tokens)
+	parser.parse()
+	fmt.Println(parser.stmts)
+	expect := []expr.Expr{
+		expr.Let{
+			Id: expr.IdC{Value: "x"},
+			Value: expr.If{
+				Cond: expr.Binop{
+					Op:    "<",
+					Left:  expr.IdC{Value: "x"},
+					Right: expr.NumC{Value: 0},
+				},
+				Then: expr.NumC{Value: 0},
+				Else: expr.NumC{Value: 1},
+			},
+		},
+	}
+	if !reflect.DeepEqual(expect, parser.stmts) {
+		t.Errorf("%#v %#v", expect, parser.stmts)
+	}
+}
+
+func TestTsdfaasdfsf(t *testing.T) {
+	input := "let x = fn n => if n < 0 then 0 else 1"
+	tokens := lexer.Lex(input)
+	parser := New(tokens)
+	parser.parse()
+	fmt.Println(parser.stmts)
+	expect := []expr.Expr{
+		expr.Let{
+			Id: expr.IdC{Value: "x"},
+			Value: expr.LamC{
+				Params: []expr.Expr{
+					expr.IdC{Value: "n"},
+				},
+				Body: expr.If{
+					Cond: expr.Binop{
+						Op:    "<",
+						Left:  expr.IdC{Value: "n"},
+						Right: expr.NumC{Value: 0},
+					},
+					Then: expr.NumC{Value: 0},
+					Else: expr.NumC{Value: 1},
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(expect, parser.stmts) {
+		t.Errorf("%#v", parser.stmts)
 	}
 }

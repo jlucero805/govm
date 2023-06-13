@@ -120,7 +120,10 @@ func (l *Lexer) canRead() bool {
 }
 
 func (l *Lexer) lexId() {
-	for l.canRead() && unicode.IsLetter(l.peek()) {
+	if l.canRead() && unicode.IsLetter(l.peek()) {
+		l.readChar()
+	}
+	for l.canRead() && (unicode.IsLetter(l.peek()) || unicode.IsNumber(l.peek()) || l.peek() == '_') {
 		l.readChar()
 	}
 	l.addId()

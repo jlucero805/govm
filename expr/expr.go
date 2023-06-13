@@ -58,7 +58,7 @@ func (nil Nil) Expr() {}
 type If struct {
 	Cond Expr
 	Then Expr
-	Else   Expr
+	Else Expr
 }
 
 func (nil If) Expr() {}
