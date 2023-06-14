@@ -38,6 +38,10 @@ func (l *Lexer) addId() {
 		l.addToken("else")
 	case "let":
 		l.addToken("let")
+	case "do":
+		l.addToken("do")
+	case "end":
+		l.addToken("end")
 	default:
 		l.addToken("id")
 	}
@@ -93,12 +97,39 @@ func (l *Lexer) lexToken() {
 		l.addToken("/")
 	case ',':
 		l.addToken(",")
+	case '{':
+		l.addToken("{")
+	case '}':
+		l.addToken("}")
+	case '.':
+		l.addToken(".")
+	case '[':
+		l.addToken("[")
+	case ']':
+		l.addToken("]")
+	case ':':
+		l.addToken(":")
 	case '<':
-		l.addToken("<")
+		if l.peek() == '=' {
+			l.readChar()
+			l.addToken("<=")
+		} else {
+			l.addToken("<")
+		}
+	case '>':
+		if l.peek() == '=' {
+			l.readChar()
+			l.addToken(">=")
+		} else {
+			l.addToken(">")
+		}
 	case '=':
 		if l.peek() == '>' {
 			l.readChar()
 			l.addToken("=>")
+		} else if l.peek() == '=' {
+			l.readChar()
+			l.addToken("==")
 		} else {
 			l.addToken("=")
 		}
@@ -107,6 +138,9 @@ func (l *Lexer) lexToken() {
 			l.lexId()
 		} else if unicode.IsNumber(l.char) {
 			l.lexNumber()
+		} else if l.char == '"' {
+			l.skip()
+			l.lexString()
 		}
 	}
 }
@@ -134,4 +168,13 @@ func (l *Lexer) lexNumber() {
 		l.readChar()
 	}
 	l.addToken("num")
+}
+
+func (l *Lexer) lexString() {
+	for l.canRead() && l.peek() != '"' {
+		l.readChar()
+	}
+	l.addToken("string")
+	l.position += 1
+	l.readPosition += 1 // skip the ending ""
 }

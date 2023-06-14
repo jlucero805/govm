@@ -1,16 +1,42 @@
 package lexer
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
+
+func TestCompareString(t *testing.T) {
+	lexer := New("\"hello\" == \"boy\"")
+	lexer.lexTokens()
+	tokens := lexer.tokens
+	if !reflect.DeepEqual(tokens,
+		[]Token{
+			newToken("string", "hello"),
+			newToken("==", "=="),
+			newToken("string", "boy"),
+		}) {
+		t.Errorf("\n%#v", tokens)
+	}
+}
+
+func TestCompare(t *testing.T) {
+	lexer := New("21 > 2")
+	lexer.lexTokens()
+	tokens := lexer.tokens
+	if !reflect.DeepEqual(tokens,
+		[]Token{
+			newToken("num", "21"),
+			newToken(">", ">"),
+			newToken("num", "2"),
+		}) {
+		t.Errorf("")
+	}
+}
 
 func Test(t *testing.T) {
 	lexer := New("123 + (if) bro ")
 	lexer.lexTokens()
 	tokens := lexer.tokens
-	fmt.Println(lexer)
 	if !reflect.DeepEqual(tokens,
 		[]Token{
 			newToken("num", "123"),
@@ -27,7 +53,6 @@ func Test2(t *testing.T) {
 	lexer := New("12 + 21 * 2")
 	lexer.lexTokens()
 	tokens := lexer.tokens
-	fmt.Println(lexer)
 	if !reflect.DeepEqual(tokens,
 		[]Token{
 			newToken("num", "12"),
@@ -43,7 +68,6 @@ func Test3(t *testing.T) {
 	lexer := New("fn a, b => a + b")
 	lexer.lexTokens()
 	tokens := lexer.tokens
-	fmt.Println(lexer)
 	if !reflect.DeepEqual(tokens,
 		[]Token{
 			newToken("fn", "fn"),
@@ -63,7 +87,6 @@ func Test4(t *testing.T) {
 	lexer := New("call(1, 2)")
 	lexer.lexTokens()
 	tokens := lexer.tokens
-	fmt.Println(lexer)
 	if !reflect.DeepEqual(tokens,
 		[]Token{
 			newToken("id", "call"),

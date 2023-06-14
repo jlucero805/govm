@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"strata/expr"
 	"strata/lexer"
 	"strconv"
@@ -46,8 +45,42 @@ func (p *parser) eat() {
 	p.position += 1
 }
 
+func (p *parser) mmap() expr.Expr {
+	p.eat() // {
+	m := make(map[expr.Expr]expr.Expr)
+	for !p.end() && p.cur().Type != "}" {
+		id := p.atom() // id can only be literals
+		p.eat()        // :
+		val := p.expr()
+		if p.cur().Type == "," {
+			p.eat()
+		}
+		m[id] = val
+	}
+	p.eat() // }
+	return expr.MapC{Binds: m}
+}
+
+func (p *parser) list() expr.Expr {
+	p.eat() // [
+	var vals = []expr.Expr{}
+	for !p.end() && p.cur().Type != "]" {
+		val := p.expr()
+		vals = append(vals, val)
+		if p.cur().Type == "," {
+			p.eat()
+		}
+	}
+	p.eat() // ]
+	return expr.ListC{Values: vals}
+}
+
 func (p *parser) atom() expr.Expr {
 	switch p.cur().Type {
+	case "string":
+		string := p.cur().Lexeme
+		p.eat()
+		return expr.StrC{Value: string}
 	case "num":
 		float, _ := strconv.ParseFloat(p.cur().Lexeme, 64)
 		strconv.ParseFloat(p.cur().Lexeme, 64)
@@ -57,6 +90,10 @@ func (p *parser) atom() expr.Expr {
 		id := p.cur().Lexeme
 		p.eat()
 		return expr.IdC{Value: id}
+	case "{":
+		return p.mmap()
+	case "[":
+		return p.list()
 	case "LPAR":
 		p.eat()
 		expression := p.fn()
@@ -67,8 +104,45 @@ func (p *parser) atom() expr.Expr {
 	}
 }
 
+func (p *parser) dot() expr.Expr {
+	left := p.atom()
+
+	if p.end() {
+		return left
+	}
+
+	isDot := p.cur().Type == "."
+
+	if isDot {
+		exprs := []expr.Expr{}
+		for !p.end() && p.cur().Type == "." {
+			p.eat()
+			atom := p.atom()
+			exprs = append(exprs, atom)
+		}
+		dotExpr := expr.Binop{
+			Op: ".",
+			Left: left,
+			Right: exprs[0],
+		}
+		exprs = exprs[1:]
+		for len(exprs) > 0 {
+			temp := exprs[0]
+			exprs = exprs[1:]
+			dotExpr = expr.Binop{
+				Op: ".",
+				Left: dotExpr,
+				Right: temp,
+			}
+		}
+		return dotExpr
+	}
+
+	return left
+}
+
 func (p *parser) call() expr.Expr {
-	first := p.atom()
+	first := p.dot()
 	if !p.end() && p.cur().Type == "LPAR" {
 		p.eat()
 		cargs := p.cargs()
@@ -104,11 +178,20 @@ func (p *parser) cargs() []expr.Expr {
 
 func (p *parser) factor() expr.Expr {
 	left := p.call()
-	if !p.end() && (p.cur().Type == "*" || p.cur().Type == "<") {
+
+	if p.end() {
+		return left
+	}
+
+	isStar := p.cur().Type == "*"
+	isSlash := p.cur().Type == "/"
+
+	if isStar || isSlash {
+		op := p.cur().Type
 		p.eat()
 		right := p.factor()
 		binop := expr.Binop{
-			Op:    "<",
+			Op:    op,
 			Left:  left,
 			Right: right,
 		}
@@ -119,13 +202,63 @@ func (p *parser) factor() expr.Expr {
 
 func (p *parser) term() expr.Expr {
 	left := p.factor()
-	if !p.end() && (p.cur().Type == "+" || p.cur().Type == "-") {
+
+	if p.end() {
+		return left
+	}
+
+	isPlus := p.cur().Type == "+"
+	isMinus := p.cur().Type == "-"
+
+	if isPlus || isMinus {
 		op := p.cur().Type
 		p.eat()
 		right := p.term()
 		binop := expr.Binop{Op: op, Left: left, Right: right}
 		return binop
 	}
+	return left
+}
+
+func (p *parser) comparison() expr.Expr {
+	left := p.term()
+
+	if p.end() {
+		return left
+	}
+
+	isGreater := p.cur().Type == ">"
+	isLessThan := p.cur().Type == "<"
+	isGreaterEqual := p.cur().Type == ">="
+	isLessEqual := p.cur().Type == "<="
+
+	if isGreater || isLessThan || isGreaterEqual || isLessEqual {
+		op := p.cur().Type
+		p.eat() // operator
+		right := p.comparison()
+		binop := expr.Binop{Op: op, Left: left, Right: right}
+		return binop
+	}
+
+	return left
+}
+
+func (p *parser) equality() expr.Expr {
+	left := p.comparison()
+
+	if p.end() {
+		return left
+	}
+
+	isEqualEqual := p.cur().Type == "=="
+
+	if isEqualEqual {
+		op := p.cur().Type
+		p.eat()
+		right := p.equality()
+		return expr.Binop{Op: op, Left: left, Right: right}
+	}
+
 	return left
 }
 
@@ -140,20 +273,18 @@ func (p *parser) fn() expr.Expr {
 			Body:   body,
 		}
 	}
-	return p.term()
+	return p.equality()
 }
 
 func (p *parser) fnargs() []expr.Expr {
 	args := []expr.Expr{}
 	for p.cur().Type != "=>" {
 		id := p.atom()
-		fmt.Println(id)
 		args = append(args, id)
 		if p.cur().Type == "," {
 			p.eat()
 		}
 	}
-	fmt.Println("done")
 	return args
 }
 
@@ -173,7 +304,6 @@ func (p *parser) iff() expr.Expr {
 	then := p.expr()
 	p.eat() // else
 	el := p.expr()
-	fmt.Println("done if")
 	return expr.If{
 		Cond: cond,
 		Then: then,
@@ -189,9 +319,16 @@ func (p *parser) expr() expr.Expr {
 	} else if p.cur().Type == "if" {
 		p.eat()
 		iff := p.iff()
-		fmt.Print("IFF  :: ")
-		fmt.Println(iff)
 		return iff
+	} else if p.cur().Type == "do" {
+		p.eat()
+		es := []expr.Expr{}
+		for p.cur().Type != "end" {
+			e := p.expr()
+			es = append(es, e)
+		}
+		p.eat()
+		return expr.DoC{Exprs: es}
 	}
 	value := p.fn()
 	return value

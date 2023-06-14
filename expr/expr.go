@@ -4,6 +4,30 @@ type Expr interface {
 	Expr()
 }
 
+type DoC struct {
+	Exprs []Expr
+}
+
+func (m DoC) Expr() {}
+
+type MapC struct {
+	Binds map[Expr]Expr
+}
+
+func (m MapC) Expr() {}
+
+type ListC struct {
+	Values []Expr
+}
+
+func (l ListC) Expr() {}
+
+type StrC struct {
+	Value string
+}
+
+func (s StrC) Expr() {}
+
 type NumC struct {
 	Value float64
 }
