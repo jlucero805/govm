@@ -11,7 +11,7 @@ import (
 func TestNumC(t *testing.T) {
 
 	ast := expr.NumC{Value: 1}
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.NumV{Value: 1}
 
 	if got != want {
@@ -26,7 +26,7 @@ func TestBinop(t *testing.T) {
 		Left:  expr.NumC{Value: 1},
 		Right: expr.NumC{Value: 2},
 	}
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.NumV{Value: 3}
 
 	if got != want {
@@ -46,7 +46,7 @@ func TestLamC(t *testing.T) {
 			Right: expr.NumC{Value: 1},
 		},
 	}
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.LamV{
 		Params: []expr.Expr{
 			expr.IdC{Value: "a"},
@@ -66,7 +66,7 @@ func TestLamC(t *testing.T) {
 
 func TestTest(t *testing.T) {
 	ast := parser.Parse("1 + 1")
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.NumV{Value: 2}
 
 	if !reflect.DeepEqual(got, want) {
@@ -76,7 +76,7 @@ func TestTest(t *testing.T) {
 
 func TestTests(t *testing.T) {
 	ast := parser.Parse("1 < 1")
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.BoolV{Value: false}
 
 	if !reflect.DeepEqual(got, want) {
@@ -86,7 +86,7 @@ func TestTests(t *testing.T) {
 
 func TestTestss(t *testing.T) {
 	ast := parser.Parse("if 1 < 10 then 1 else 100")
-	got, _ := Interp(ast, value.New())
+	got, _ := Interp(ast, value.New(), &Logger{})
 	want := value.NumV{Value: 1}
 
 	if !reflect.DeepEqual(got, want) {
@@ -210,12 +210,9 @@ func TestEndToEnd(t *testing.T) {
 		{
 			"fibonacci",
 			`let fib = fn n =>
-				if n == 1 then
-					1
-				else if n == 2 then
-					1
-				else
-					fib(n - 1) + fib(n - 2)
+				if n == 1 then 1
+				else if n == 2 then 1
+				else fib(n - 1) + fib(n - 2)
 			let output = fib(20)`,
 			value.NumV{Value: 6765},
 		},
@@ -257,6 +254,31 @@ func TestEndToEnd(t *testing.T) {
 				add1(a) + add1(b)
 			end
 			let output = add(1, 2)`,
+			value.NumV{Value: 5},
+		},
+		{
+			"nested funcs",
+			`let a = fn x => x
+			let b = fn x => a(x)
+			let c = fn x => b(x)
+			let d = fn x => c(x)
+			let e = fn x => d(x)
+			let f = fn x => e(x)
+			let g = fn x => f(x)
+			let h = fn x => g(x)
+			let i = fn x => h(x)
+			let output = i(5)`,
+			value.NumV{Value: 5},
+		},
+		{
+			"super curry",
+			`let curry =
+				fn a => fn =>
+				fn => fn =>
+				fn => fn =>
+				fn => a
+			let output =
+				curry(5)()()()()()()`,
 			value.NumV{Value: 5},
 		},
 		{
@@ -344,7 +366,10 @@ func TestEndToEnd(t *testing.T) {
 		},
 		{
 			"stdlib",
-			`let output = Enum.map([1, 2, 3], (fn x => x + 1))`,
+			`let output = Enum.map(
+					[1, 2, 3]
+				, (fn x => x + 1)
+			)`,
 			value.ListV{
 				Values: []value.Value{
 					value.NumV{Value: 2},
@@ -355,7 +380,10 @@ func TestEndToEnd(t *testing.T) {
 		},
 		{
 			"filter",
-			"let output = Enum.filter([1, 2, 3, 4], (fn x => x == 2))",
+			`let output = Enum.filter(
+					[1, 2, 3, 4]
+				, (fn x => x == 2)
+			)`,
 			value.ListV{
 				Values: []value.Value{
 					value.NumV{Value: 2},
@@ -364,14 +392,18 @@ func TestEndToEnd(t *testing.T) {
 		},
 		{
 			"foldl",
-			`let output = Enum.foldl([1, 2, 3, 4, 5],
-				(fn x, acc => x + acc),
-				0)`,
+			`let output = Enum.foldl(
+					[1, 2, 3, 4, 5]
+				, (fn x, acc => x + acc)
+				, 0
+			)`,
 			value.NumV{Value: 15},
 		},
 		{
 			". operator",
-			`let m = {hey: 69}
+			`let m = {
+				hey: 69
+			}
 			let output = m.hey`,
 			value.NumV{Value: 69},
 		},

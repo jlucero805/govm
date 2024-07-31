@@ -1,19 +1,24 @@
 package interp
 
 import (
+	"fmt"
 	"strata/expr"
 	"strata/parser"
 	"strata/value"
 )
 
-func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
+type Logger struct {
+	Logs []string
+}
+
+func Interp(node expr.Expr, env *value.Env, logger *Logger) (value.Value, *value.Env) {
 	switch node.(type) {
 	case expr.DoC:
 		do := node.(expr.DoC)
 		childEnv := value.Extend(env, value.NewChild())
 		es := []value.Value{}
 		for _, e := range do.Exprs {
-			ee, en := Interp(e, childEnv)
+			ee, en := Interp(e, childEnv, logger)
 			childEnv = en
 			es = append(es, ee)
 		}
@@ -28,9 +33,9 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 			case expr.IdC:
 				id = value.StrV{Value: key.Value}
 			default:
-				id, env = Interp(key, env)
+				id, env = Interp(key, env, logger)
 			}
-			mval, env := Interp(val, env)
+			mval, env := Interp(val, env, logger)
 			env = env
 			m[id] = mval
 		}
@@ -40,7 +45,7 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 		listV := []value.Value{}
 		newEnv := env
 		for _, val := range list.Values {
-			interpedVal, e := Interp(val, env)
+			interpedVal, e := Interp(val, env, logger)
 			newEnv = e
 			listV = append(listV, interpedVal)
 		}
@@ -69,52 +74,52 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 					binop.Left,
 					right,
 				},
-			}, env)
+			}, env, logger)
 			return val, env
 		case "+":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.NumV{Value: left.(value.NumV).Value + right.(value.NumV).Value}, env2
 		case "*":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.NumV{Value: left.(value.NumV).Value * right.(value.NumV).Value}, env2
 		case "/":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.NumV{Value: left.(value.NumV).Value / right.(value.NumV).Value}, env2
 		case "-":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.NumV{Value: left.(value.NumV).Value - right.(value.NumV).Value}, env2
 		case "<":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.BoolV{Value: left.(value.NumV).Value < right.(value.NumV).Value}, env2
 		case ">":
 			binop := node.(expr.Binop)
-			left, env1 := Interp(binop.Left, env)
-			right, env2 := Interp(binop.Right, env1)
+			left, env1 := Interp(binop.Left, env, logger)
+			right, env2 := Interp(binop.Right, env1, logger)
 			return value.BoolV{Value: left.(value.NumV).Value > right.(value.NumV).Value}, env2
 		case "<=":
 			binop := node.(expr.Binop)
-			left, env := Interp(binop.Left, env)
-			right, env := Interp(binop.Right, env)
+			left, env := Interp(binop.Left, env, logger)
+			right, env := Interp(binop.Right, env, logger)
 			return value.BoolV{Value: left.(value.NumV).Value <= right.(value.NumV).Value}, env
 		case ">=":
 			binop := node.(expr.Binop)
-			left, env := Interp(binop.Left, env)
-			right, env := Interp(binop.Right, env)
+			left, env := Interp(binop.Left, env, logger)
+			right, env := Interp(binop.Right, env, logger)
 			return value.BoolV{Value: left.(value.NumV).Value >= right.(value.NumV).Value}, env
 		case "==":
 			binop := node.(expr.Binop)
-			left, env := Interp(binop.Left, env)
-			right, env := Interp(binop.Right, env)
+			left, env := Interp(binop.Left, env, logger)
+			right, env := Interp(binop.Right, env, logger)
 			return value.BoolV{Value: left.Equals(right)}, env
 		default:
 			return value.NumV{Value: 0}, env
@@ -129,19 +134,19 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 	case expr.Let:
 		let := node.(expr.Let)
 		env.Set(let.Id.(expr.IdC), value.NilV{})
-		val, e := Interp(let.Value, env)
+		val, e := Interp(let.Value, env, logger)
 		e.Set(let.Id.(expr.IdC), val)
 		return value.NilV{}, e
 	case expr.Call:
 		call := node.(expr.Call)
-		proc, newEnv := Interp(call.Proc, env)
+		proc, newEnv := Interp(call.Proc, env, logger)
 		switch proc := proc.(type) {
 		case value.LamV:
 			args := []value.Value{}
 			cEnv := newEnv
 			var v value.Value
 			for _, val := range call.Args {
-				v, cEnv = Interp(val, env)
+				v, cEnv = Interp(val, env, logger)
 				args = append(args, v)
 			}
 			binds := []*value.Bind{}
@@ -157,14 +162,14 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 			}
 			callEnv := &value.Env{Binds: callEnvMap}
 			extendedEnv := value.Extend(proc.Closure, callEnv)
-			body, _ := Interp(proc.Body, extendedEnv)
+			body, _ := Interp(proc.Body, extendedEnv, logger)
 			return body, cEnv
 		case value.PrimV:
 			args := []value.Value{}
 			cEnv := newEnv
 			var v value.Value
 			for _, val := range call.Args {
-				v, cEnv = Interp(val, env)
+				v, cEnv = Interp(val, env, logger)
 				args = append(args, v)
 			}
 			switch proc.Name {
@@ -190,6 +195,10 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 			case "push":
 				list := args[0].(value.ListV).Values
 				return value.ListV{Values: append(list, args[1])}, cEnv
+			case "print":
+				val := args[0]
+				logger.Logs = append(logger.Logs, Serialize(val))
+				return value.NilV{}, cEnv
 			default:
 				panic("prim doesn't exist")
 			}
@@ -199,19 +208,60 @@ func Interp(node expr.Expr, env *value.Env) (value.Value, *value.Env) {
 		}
 	case expr.If:
 		iff := node.(expr.If)
-		i, e := Interp(iff.Cond, env)
+		i, e := Interp(iff.Cond, env, logger)
 		cond := i.(value.BoolV).Value
 		if cond {
-			val, env := Interp(iff.Then, e)
+			val, env := Interp(iff.Then, e, logger)
 			return val, env
 		}
-		return Interp(iff.Else, e)
+		return Interp(iff.Else, e, logger)
 	case expr.Group:
 		var group = node.(expr.Group)
-		return Interp(group.Body, env)
+		return Interp(group.Body, env, logger)
 	default:
 		return value.NumV{Value: 0}, env
 	}
+}
+
+func TopInterpLogs(nodes []expr.Expr) (*value.Env, *Logger) {
+	env := value.New()
+	_, env = Interp(parser.Parse(`
+	let Enum = {
+		map: (fn lst, f => do
+			let go = fn lst, f, acc =>
+				if len(lst) > 0 then
+					go(tail(lst), f, push(acc, f(head(lst))))
+				else
+					acc
+			go(lst, f, [])
+		end),
+		filter: (fn lst, f => do
+			let go = fn lst, f, acc =>
+				if len(lst) > 0 then do
+					let accVals = if f(head(lst)) then
+						push(acc, head(lst))
+					else
+						acc
+					go(tail(lst), f, accVals)
+				end else
+					acc
+			go(lst, f, [])
+		end),
+		foldl: (fn col, f, acc => do
+			let iter = fn col, acc => 
+				if len(col) > 0 then
+					iter(tail(col), f(head(col), acc))
+				else
+					acc
+			iter(col, acc)
+		end)
+	}`), env, &Logger{})
+	log := &Logger{}
+	for _, node := range nodes {
+		_, newEnv := Interp(node, env, log)
+		env = newEnv
+	}
+	return env, log
 }
 
 func TopInterp(nodes []expr.Expr) *value.Env {
@@ -226,30 +276,48 @@ func TopInterp(nodes []expr.Expr) *value.Env {
 					acc
 			go(lst, f, [])
 		end),
-	 filter: (fn lst, f => do
-		let go = fn lst, f, acc =>
-			if len(lst) > 0 then do
-				let accVals = if f(head(lst)) then
-					push(acc, head(lst))
+		filter: (fn lst, f => do
+			let go = fn lst, f, acc =>
+				if len(lst) > 0 then do
+					let accVals = if f(head(lst)) then
+						push(acc, head(lst))
+					else
+						acc
+					go(tail(lst), f, accVals)
+				end else
+					acc
+			go(lst, f, [])
+		end),
+		foldl: (fn col, f, acc => do
+			let iter = fn col, acc => 
+				if len(col) > 0 then
+					iter(tail(col), f(head(col), acc))
 				else
 					acc
-				go(tail(lst), f, accVals)
-			end else
-				acc
-		go(lst, f, [])
-	end),
-	foldl: (fn col, f, acc => do
-		let iter = fn col, acc => 
-			if len(col) > 0 then
-				iter(tail(col), f(head(col), acc))
-			else
-				acc
-		iter(col, acc)
-	end)
-	}`), env)
+			iter(col, acc)
+		end)
+	}`), env, &Logger{})
+	log := &Logger{}
 	for _, node := range nodes {
-		_, newEnv := Interp(node, env)
+		_, newEnv := Interp(node, env, log)
 		env = newEnv
 	}
 	return env
+}
+
+func Serialize(val value.Value) string {
+	switch obj := val.(type) {
+	case value.BoolV:
+		if obj.Value == true {
+			return "true"
+		} else {
+			return "false"
+		}
+	case value.NumV:
+		return fmt.Sprintf("%v", obj.Value)
+	case value.StrV:
+		return obj.Value
+	default:
+		return "nil"
+	}
 }

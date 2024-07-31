@@ -96,7 +96,7 @@ func (p *parser) atom() expr.Expr {
 		return p.list()
 	case "LPAR":
 		p.eat()
-		expression := p.fn()
+		expression := p.expr()
 		p.eat()
 		return expr.Group{Body: expression}
 	default:
@@ -121,8 +121,8 @@ func (p *parser) dot() expr.Expr {
 			exprs = append(exprs, atom)
 		}
 		dotExpr := expr.Binop{
-			Op: ".",
-			Left: left,
+			Op:    ".",
+			Left:  left,
 			Right: exprs[0],
 		}
 		exprs = exprs[1:]
@@ -130,8 +130,8 @@ func (p *parser) dot() expr.Expr {
 			temp := exprs[0]
 			exprs = exprs[1:]
 			dotExpr = expr.Binop{
-				Op: ".",
-				Left: dotExpr,
+				Op:    ".",
+				Left:  dotExpr,
 				Right: temp,
 			}
 		}
@@ -166,7 +166,7 @@ func (p *parser) call() expr.Expr {
 func (p *parser) cargs() []expr.Expr {
 	res := []expr.Expr{}
 	for p.cur().Type != "RPAR" {
-		arg := p.fn()
+		arg := p.expr()
 		res = append(res, arg)
 		if p.cur().Type == "," {
 			p.eat()
@@ -263,17 +263,14 @@ func (p *parser) equality() expr.Expr {
 }
 
 func (p *parser) fn() expr.Expr {
-	if p.cur().Type == "fn" {
-		p.eat()
-		args := p.fnargs()
-		p.eat() // =>
-		body := p.expr()
-		return expr.LamC{
-			Params: args,
-			Body:   body,
-		}
+	p.eat()
+	args := p.fnargs()
+	p.eat() // =>
+	body := p.expr()
+	return expr.LamC{
+		Params: args,
+		Body:   body,
 	}
-	return p.equality()
 }
 
 func (p *parser) fnargs() []expr.Expr {
@@ -329,9 +326,10 @@ func (p *parser) expr() expr.Expr {
 		}
 		p.eat()
 		return expr.DoC{Exprs: es}
+	} else if p.cur().Type == "fn" {
+		return p.fn()
 	}
-	value := p.fn()
-	return value
+	return p.equality()
 }
 
 func (p *parser) parse() expr.Expr {

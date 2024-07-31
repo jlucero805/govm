@@ -1,0 +1,36 @@
+## bits 1-5
+op code
+
+# Stack Operations
+PUSH value
+
+# Operators
+EQ
+LT
+ADD
+SUB
+MUL
+DIV
+
+# Procedures
+FUNDEF
+FUNEND
+
+# Load/Store
+STORE location
+LOAD location
+
+# PC
+RET
+CALL
+JMPR location
+JMPRIF location
+
+# Env
+ENVNEW
+ENVEND
+
+## bit 6 sign
+
+## bits 7-64
+data

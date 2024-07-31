@@ -1,0 +1,22 @@
+POST http://strata-lang-env.eba-kw2nzgzk.us-west-2.elasticbeanstalk.com/
+Content-Type: text/plain
+
+let add = fn x, y => x + y
+print(add(1, 3))
+print(add(2,  2))
+
+(struct node
+    (value int)
+    (left node)
+    (right node))
+
+(fun add
+    ((x int) (y int)
+     int)
+    (+ x y))
+
+(fun stuff
+    ((x int) (y int))
+    (let ((z (+ x y))
+          (a (- z y)))
+         (+ z a)))

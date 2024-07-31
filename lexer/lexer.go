@@ -95,6 +95,10 @@ func (l *Lexer) lexToken() {
 		l.addToken("*")
 	case '/':
 		l.addToken("/")
+	case '|':
+		if l.peek() == '>' {
+			l.addToken("|>")
+		}
 	case ',':
 		l.addToken(",")
 	case '{':
